@@ -4,6 +4,9 @@
 //   node scripts/check-supabase.mjs
 // ---------------------------------------------------------------------------
 import { createClient } from "@supabase/supabase-js";
+import WebSocketImpl from "ws";
+if (typeof globalThis.WebSocket === "undefined") globalThis.WebSocket = WebSocketImpl;
+
 import fs from "node:fs";
 
 function loadEnv() {
@@ -46,13 +49,17 @@ const tables = [
 console.log("\nTables:");
 let missing = 0;
 for (const t of tables) {
-  const { count, error } = await supabase.from(t).select("*", { count: "exact", head: true });
-  if (error) {
+  // NOTE: a HEAD+count request does not reliably fail on a missing table,
+  // so we issue a real select instead.
+  const probe = await supabase.from(t).select("*").limit(1);
+  if (probe.error) {
     missing++;
-    console.log(`  ✖ ${t.padEnd(18)} ${error.message}`);
-  } else {
-    console.log(`  ✓ ${t.padEnd(18)} ${count ?? 0} rows`);
+    console.log(`  ✖ ${t.padEnd(18)} ${probe.error.message.slice(0, 70)}`);
+    continue;
   }
+  const { count } = await supabase.from(t).select("*", { count: "exact", head: true });
+  const cols = probe.data?.[0] ? ` [${Object.keys(probe.data[0]).slice(0, 5).join(", ")}…]` : "";
+  console.log(`  ✓ ${t.padEnd(18)} ${String(count ?? 0).padStart(5)} rows${cols}`);
 }
 
 if (missing) {

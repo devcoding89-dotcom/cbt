@@ -1,5 +1,14 @@
 import "server-only";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import WebSocketImpl from "ws";
+
+// supabase-js instantiates a realtime client on construction, which needs a
+// global WebSocket. Node 22+ ships one; on Node 18/20 we polyfill it so the
+// driver works on every runtime.
+if (typeof (globalThis as { WebSocket?: unknown }).WebSocket === "undefined") {
+  (globalThis as { WebSocket?: unknown }).WebSocket = WebSocketImpl;
+}
+
 import type {
   AppSettings,
   Bookmark,
@@ -20,13 +29,21 @@ import { DEFAULT_SETTINGS, type PickSpec, type QuestionFilter, type Repo, type T
 // protect direct client access.
 // ---------------------------------------------------------------------------
 
-let _admin: SupabaseClient | null = null;
-export function admin(): SupabaseClient {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyClient = SupabaseClient<any, any, any, any, any>;
+
+let _admin: AnyClient | null = null;
+export function admin(): AnyClient {
   if (_admin) return _admin;
   _admin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { persistSession: false, autoRefreshToken: false } },
+    {
+      auth: { persistSession: false, autoRefreshToken: false },
+      // Set SUPABASE_DB_SCHEMA=prepai to keep PrepAI's tables in their own
+      // Postgres schema — required when the project is shared with another app.
+      db: { schema: process.env.SUPABASE_DB_SCHEMA || "public" },
+    },
   );
   return _admin;
 }

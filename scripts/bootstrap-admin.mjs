@@ -6,6 +6,9 @@
 // Requires NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in .env.local
 // ---------------------------------------------------------------------------
 import { createClient } from "@supabase/supabase-js";
+import WebSocketImpl from "ws";
+if (typeof globalThis.WebSocket === "undefined") globalThis.WebSocket = WebSocketImpl;
+
 import fs from "node:fs";
 
 function loadEnv() {

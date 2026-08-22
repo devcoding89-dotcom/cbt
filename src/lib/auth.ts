@@ -115,8 +115,27 @@ export async function signUp(input: {
       user_metadata: { full_name: input.full_name },
     });
     if (error || !data.user) return { ok: false, error: error?.message ?? "Could not create account." };
-    // the handle_new_user trigger creates the profile row
-    const profile = await repo.getProfile(data.user.id);
+    // Create the profile row ourselves rather than relying on a database
+    // trigger — safer when the Supabase project is shared with another app.
+    let profile = await repo.getProfile(data.user.id);
+    if (!profile) {
+      const now = new Date().toISOString();
+      await admin()
+        .from("profiles")
+        .upsert(
+          {
+            id: data.user.id,
+            email,
+            full_name: input.full_name.trim(),
+            role: "student",
+            subscription_status: "inactive",
+            created_at: now,
+            updated_at: now,
+          },
+          { onConflict: "id" },
+        );
+      profile = await repo.getProfile(data.user.id);
+    }
     await setSessionCookie(data.user.id);
     return { ok: true, user: profile ?? undefined };
   }
