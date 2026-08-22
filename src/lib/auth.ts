@@ -108,10 +108,19 @@ export async function signUp(input: {
 
   if (usingSupabase) {
     const { admin } = await import("@/lib/db/supabase");
+    // NO EMAIL IS EVER SENT TO THE STUDENT.
+    //
+    // We deliberately use the admin API with email_confirm: true instead of
+    // the client-side supabase.auth.signUp(). signUp() would trigger a
+    // "Confirm your email" message from Supabase; admin.createUser() creates
+    // the account already confirmed and sends nothing.
+    //
+    // Do not swap this for signUp() unless you actually want confirmation
+    // emails — see README section "Email behaviour".
     const { data, error } = await admin().auth.admin.createUser({
       email,
       password: input.password,
-      email_confirm: true,
+      email_confirm: true, // pre-confirmed => no verification email
       user_metadata: { full_name: input.full_name },
     });
     if (error || !data.user) return { ok: false, error: error?.message ?? "Could not create account." };

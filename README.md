@@ -132,6 +132,33 @@ npm run build && npm start
 
 ---
 
+## 4.4 Email behaviour — PrepAI sends none
+
+PrepAI does **not** send email to students. There is no mailer, no SMTP config
+and no email dependency anywhere in the codebase. Specifically:
+
+| Event | Email sent? |
+| --- | --- |
+| Student signs up | **No** — created via `admin.createUser({ email_confirm: true })`, so the account is already verified |
+| Student logs in | No — password only |
+| Payment succeeds | No — the subscription updates in-app |
+| Session submitted / report ready | No — shown in-app |
+
+The only way a student would start receiving mail is if someone replaced the
+signup call with the client-side `supabase.auth.signUp()`, which asks Supabase
+to send a "Confirm your email" message. That line in `src/lib/auth.ts` is
+commented accordingly — leave it as the admin call.
+
+> **Do not disable "Confirm email" in Supabase → Authentication → Providers**
+> if the project is shared with another application. PrepAI does not need that
+> setting either way, and switching it off would let anyone register with an
+> address they do not own in the *other* app.
+
+If you later add a "Forgot password" flow, that one genuinely does email the
+student — it is not implemented today.
+
+---
+
 ## 5. Loading your own questions
 
 Admin → Questions → **Import**. Paste or drop a `.csv` / `.json` file, click
