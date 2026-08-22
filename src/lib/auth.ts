@@ -1,5 +1,5 @@
 import "server-only";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
 import { repo, usingSupabase } from "@/lib/db";
@@ -40,10 +40,15 @@ function decode(token: string | undefined): string | null {
 
 export async function setSessionCookie(userId: string) {
   const jar = await cookies();
+  const h = await headers();
+  // Over HTTPS we must use SameSite=None so the cookie survives being loaded
+  // inside an iframe (workspace previews, embedded demos). SameSite=None is
+  // only legal together with Secure, so plain-HTTP localhost stays on Lax.
+  const isHttps = (h.get("x-forwarded-proto") ?? "http").split(",")[0].trim() === "https";
   jar.set(COOKIE, encode(userId), {
     httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    sameSite: isHttps ? "none" : "lax",
+    secure: isHttps,
     path: "/",
     maxAge: MAX_AGE,
   });

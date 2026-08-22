@@ -59,11 +59,6 @@ export function LoginForm({ next }: { next?: string }) {
         </Link>
       </p>
 
-      <div className="rounded-xl border border-dashed border-ink-200 bg-ink-50/60 p-3 text-[12px] leading-relaxed text-ink-500">
-        <p className="font-semibold text-ink-700">Demo accounts</p>
-        <p className="mt-1">Student — <code className="font-mono">student@prepai.ng</code> / <code className="font-mono">student1234</code></p>
-        <p>Admin — <code className="font-mono">admin@prepai.ng</code> / <code className="font-mono">admin1234</code></p>
-      </div>
     </form>
   );
 }

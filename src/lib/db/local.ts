@@ -63,11 +63,13 @@ function buildSeed(): DB {
   const db = emptyDB();
   const ts = now();
 
+  // A single bootstrap admin so a fresh install is reachable. Override with
+  // PREPAI_ADMIN_EMAIL / PREPAI_ADMIN_PASSWORD before first run.
   db.users.push({
     id: uid(),
-    email: "admin@prepai.ng",
-    password_hash: bcrypt.hashSync("admin1234", 10),
-    full_name: "PrepAI Admin",
+    email: (process.env.PREPAI_ADMIN_EMAIL || "admin@prepai.ng").toLowerCase(),
+    password_hash: bcrypt.hashSync(process.env.PREPAI_ADMIN_PASSWORD || "admin1234", 10),
+    full_name: "Administrator",
     role: "admin",
     target_exam: "JAMB",
     avatar_url: null,
@@ -77,112 +79,13 @@ function buildSeed(): DB {
     updated_at: ts,
   });
 
-  const student: UserRecord = {
-    id: uid(),
-    email: "student@prepai.ng",
-    password_hash: bcrypt.hashSync("student1234", 10),
-    full_name: "Chidi Okafor",
-    role: "student",
-    target_exam: "JAMB",
-    avatar_url: null,
-    subscription_status: "active",
-    subscription_expires_at: new Date(Date.now() + 22 * 864e5).toISOString(),
-    created_at: new Date(Date.now() - 40 * 864e5).toISOString(),
-    updated_at: ts,
-  };
-  db.users.push(student);
-
-  db.questions = seedQuestions().map((q) => ({ ...q, id: uid(), created_at: ts }));
-  db.textbooks = seedTextbooks().map((t) => ({ ...t, id: uid(), created_at: ts }));
-
-  // ---- a little history for the demo student so charts aren't empty -------
-  const history = [
-    { daysAgo: 30, subject: "Mathematics", score: 44, total: 10 },
-    { daysAgo: 24, subject: "Physics", score: 50, total: 10 },
-    { daysAgo: 18, subject: "Mathematics", score: 60, total: 10 },
-    { daysAgo: 11, subject: "Chemistry", score: 62, total: 10 },
-    { daysAgo: 5, subject: "Mathematics", score: 72, total: 10 },
-  ];
-  for (const h of history) {
-    const pool = db.questions.filter((q) => q.exam === "JAMB" && q.subject === h.subject).slice(0, h.total);
-    if (!pool.length) continue;
-    const correct = Math.round((h.score / 100) * pool.length);
-    const startedAt = new Date(Date.now() - h.daysAgo * 864e5).toISOString();
-    const sessionId = uid();
-    db.sessions.push({
-      id: sessionId,
-      user_id: student.id,
-      exam: "JAMB",
-      subjects: [h.subject],
-      mode: "quick",
-      total_questions: pool.length,
-      question_ids: pool.map((q) => q.id),
-      duration_seconds: pool.length * 60,
-      correct_count: correct,
-      wrong_count: pool.length - correct,
-      unanswered_count: 0,
-      score_percent: Math.round((correct / pool.length) * 100),
-      time_taken_seconds: pool.length * 42,
-      status: "completed",
-      started_at: startedAt,
-      ended_at: new Date(new Date(startedAt).getTime() + pool.length * 42000).toISOString(),
-    });
-    pool.forEach((q, i) => {
-      const isCorrect = i < correct;
-      db.answers.push({
-        id: uid(),
-        session_id: sessionId,
-        question_id: q.id,
-        selected_option: isCorrect ? q.correct_answer : q.correct_answer === "A" ? "B" : "A",
-        is_correct: isCorrect,
-        flagged: false,
-        time_taken_ms: 30000 + i * 1500,
-        answered_at: startedAt,
-      });
-    });
-    // weakness rows
-    const byTopic = new Map<string, { total: number; wrong: number }>();
-    pool.forEach((q, i) => {
-      const rec = byTopic.get(q.topic) ?? { total: 0, wrong: 0 };
-      rec.total++;
-      if (i >= correct) rec.wrong++;
-      byTopic.set(q.topic, rec);
-    });
-    for (const [topic, s] of byTopic) {
-      const score = Math.round((s.wrong / s.total) * 100);
-      if (score < 50) continue;
-      db.weaknesses.push({
-        id: uid(),
-        user_id: student.id,
-        session_id: sessionId,
-        exam: "JAMB",
-        subject: h.subject,
-        topic,
-        weakness_score: score,
-        total_attempted: s.total,
-        correct_count: s.total - s.wrong,
-        wrong_count: s.wrong,
-        severity: score >= 75 ? "critical" : "weak",
-        recommendation: `Revise ${topic} and attempt more practice questions on it.`,
-        textbook_id: db.textbooks.find((t) => t.topic_tags.includes(topic))?.id ?? null,
-        created_at: startedAt,
-      });
-    }
+  // Starter content is opt-in — set PREPAI_SEED_CONTENT=1 to load the sample
+  // question bank and textbook chapters. Off by default so you start clean and
+  // import your own material from Admin -> Questions -> Import.
+  if (process.env.PREPAI_SEED_CONTENT === "1") {
+    db.questions = seedQuestions().map((q) => ({ ...q, id: uid(), created_at: ts }));
+    db.textbooks = seedTextbooks().map((t) => ({ ...t, id: uid(), created_at: ts }));
   }
-
-  db.payments.push({
-    id: uid(),
-    user_id: student.id,
-    email: student.email,
-    amount: 100000,
-    paystack_ref: "demo_seed_ref_001",
-    paystack_transaction_id: "demo-001",
-    channel: "card",
-    status: "success",
-    paid_at: new Date(Date.now() - 8 * 864e5).toISOString(),
-    expires_at: student.subscription_expires_at,
-    created_at: new Date(Date.now() - 8 * 864e5).toISOString(),
-  });
 
   return db;
 }
