@@ -1,24 +1,24 @@
 -- ============================================================================
--- PrepAI — ISOLATED SCHEMA INSTALL
+-- PrepAI — PREFIXED INSTALL (no dashboard configuration required)
 --
--- Use this file INSTEAD OF 0001_init.sql when the Supabase project is already
--- used by another application. Everything lives in a dedicated `prepai`
--- schema, so nothing in `public` is touched: no table collisions, and your
--- existing handle_new_user() trigger is left exactly as it is.
+-- Creates every PrepAI table inside the existing `public` schema, prefixed
+-- with `prepai_`. Because `public` is already exposed to the Data API, this
+-- works immediately — no "Exposed schemas" change needed.
 --
--- After running this:
---   Dashboard -> Project Settings -> API -> "Exposed schemas"
---   add:  prepai      (keep public and graphql_public in the list)
+-- Nothing existing is touched: your email app's `profiles`, `campaigns`,
+-- `templates`, `contacts`, `email_lists`, `email_logs` and the stale
+-- `questions` table are all left exactly as they are, and your
+-- handle_new_user() trigger is NOT modified.
 --
--- Then set in .env.local:
---   SUPABASE_DB_SCHEMA=prepai
+-- Safe to re-run. After running, set in .env.local:
+--     SUPABASE_TABLE_PREFIX=prepai_
 -- ============================================================================
 
 create extension if not exists "pgcrypto";
-create schema if not exists prepai;
+
 
 -- ---------------------------------------------------------------- profiles
-create table if not exists prepai.profiles (
+create table if not exists public.prepai_profiles (
   id uuid primary key references auth.users on delete cascade,
   email text not null,
   full_name text,
@@ -33,7 +33,7 @@ create table if not exists prepai.profiles (
 );
 
 -- --------------------------------------------------------------- questions
-create table if not exists prepai.questions (
+create table if not exists public.prepai_questions (
   id uuid primary key default gen_random_uuid(),
   exam text not null check (exam in ('JAMB', 'WAEC', 'NECO')),
   subject text not null,
@@ -49,12 +49,12 @@ create table if not exists prepai.questions (
   created_at timestamptz not null default now()
 );
 
-create index if not exists idx_q_exam_subject on prepai.questions (exam, subject);
-create index if not exists idx_q_topic        on prepai.questions (topic);
-create index if not exists idx_q_active       on prepai.questions (is_active);
+create index if not exists idx_q_exam_subject on public.prepai_questions (exam, subject);
+create index if not exists idx_q_topic        on public.prepai_questions (topic);
+create index if not exists idx_q_active       on public.prepai_questions (is_active);
 
 -- -------------------------------------------------------- practice_sessions
-create table if not exists prepai.practice_sessions (
+create table if not exists public.prepai_practice_sessions (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users on delete cascade,
   exam text not null check (exam in ('JAMB', 'WAEC', 'NECO')),
@@ -74,13 +74,13 @@ create table if not exists prepai.practice_sessions (
   ended_at timestamptz
 );
 
-create index if not exists idx_ps_user on prepai.practice_sessions (user_id, started_at desc);
+create index if not exists idx_ps_user on public.prepai_practice_sessions (user_id, started_at desc);
 
 -- ---------------------------------------------------------- session_answers
-create table if not exists prepai.session_answers (
+create table if not exists public.prepai_session_answers (
   id uuid primary key default gen_random_uuid(),
-  session_id uuid not null references prepai.practice_sessions on delete cascade,
-  question_id uuid not null references prepai.questions on delete cascade,
+  session_id uuid not null references public.prepai_practice_sessions on delete cascade,
+  question_id uuid not null references public.prepai_questions on delete cascade,
   selected_option text,
   is_correct boolean,
   flagged boolean not null default false,
@@ -89,10 +89,10 @@ create table if not exists prepai.session_answers (
   unique (session_id, question_id)
 );
 
-create index if not exists idx_sa_session on prepai.session_answers (session_id);
+create index if not exists idx_sa_session on public.prepai_session_answers (session_id);
 
 -- --------------------------------------------------------------- textbooks
-create table if not exists prepai.textbooks (
+create table if not exists public.prepai_textbooks (
   id uuid primary key default gen_random_uuid(),
   exam text not null check (exam in ('JAMB', 'WAEC', 'NECO')),
   subject text not null,
@@ -108,14 +108,14 @@ create table if not exists prepai.textbooks (
   created_at timestamptz not null default now()
 );
 
-create index if not exists idx_tb_tags on prepai.textbooks using gin (topic_tags);
-create index if not exists idx_tb_exam on prepai.textbooks (exam, subject);
+create index if not exists idx_tb_tags on public.prepai_textbooks using gin (topic_tags);
+create index if not exists idx_tb_exam on public.prepai_textbooks (exam, subject);
 
 -- ---------------------------------------------------------- weakness_reports
-create table if not exists prepai.weakness_reports (
+create table if not exists public.prepai_weakness_reports (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users on delete cascade,
-  session_id uuid references prepai.practice_sessions on delete cascade,
+  session_id uuid references public.prepai_practice_sessions on delete cascade,
   exam text not null,
   subject text not null,
   topic text not null,
@@ -125,24 +125,24 @@ create table if not exists prepai.weakness_reports (
   wrong_count int not null default 0,
   severity text not null default 'weak' check (severity in ('critical','weak','fair','strong')),
   recommendation text,
-  textbook_id uuid references prepai.textbooks on delete set null,
+  textbook_id uuid references public.prepai_textbooks on delete set null,
   created_at timestamptz not null default now()
 );
 
-create index if not exists idx_wr_user    on prepai.weakness_reports (user_id, created_at desc);
-create index if not exists idx_wr_session on prepai.weakness_reports (session_id);
+create index if not exists idx_wr_user    on public.prepai_weakness_reports (user_id, created_at desc);
+create index if not exists idx_wr_session on public.prepai_weakness_reports (session_id);
 
 -- --------------------------------------------------------------- bookmarks
-create table if not exists prepai.bookmarks (
+create table if not exists public.prepai_bookmarks (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users on delete cascade,
-  textbook_id uuid not null references prepai.textbooks on delete cascade,
+  textbook_id uuid not null references public.prepai_textbooks on delete cascade,
   created_at timestamptz not null default now(),
   unique (user_id, textbook_id)
 );
 
 -- ---------------------------------------------------------------- payments
-create table if not exists prepai.payments (
+create table if not exists public.prepai_payments (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users on delete cascade,
   email text not null,
@@ -156,10 +156,10 @@ create table if not exists prepai.payments (
   created_at timestamptz not null default now()
 );
 
-create index if not exists idx_pay_user on prepai.payments (user_id, created_at desc);
+create index if not exists idx_pay_user on public.prepai_payments (user_id, created_at desc);
 
 -- ------------------------------------------------------------ app_settings
-create table if not exists prepai.app_settings (
+create table if not exists public.prepai_app_settings (
   id text primary key default 'singleton',
   site_name text not null default 'PrepAI',
   price_kobo int not null default 100000,
@@ -169,7 +169,7 @@ create table if not exists prepai.app_settings (
   weakness_threshold int not null default 50
 );
 
-insert into prepai.app_settings (id) values ('singleton') on conflict (id) do nothing;
+insert into public.prepai_app_settings (id) values ('singleton') on conflict (id) do nothing;
 
 -- ============================================================================
 -- Access
@@ -178,20 +178,17 @@ insert into prepai.app_settings (id) values ('singleton') on conflict (id) do no
 -- anon/authenticated, so the tables cannot be read directly from a browser
 -- even if the schema is exposed.
 -- ============================================================================
-grant usage on schema prepai to service_role;
-grant all on all tables in schema prepai to service_role;
-grant all on all sequences in schema prepai to service_role;
-alter default privileges in schema prepai grant all on tables to service_role;
+-- public is already granted to service_role by Supabase; nothing extra needed.
 
-alter table prepai.profiles          enable row level security;
-alter table prepai.questions         enable row level security;
-alter table prepai.practice_sessions enable row level security;
-alter table prepai.session_answers   enable row level security;
-alter table prepai.weakness_reports  enable row level security;
-alter table prepai.textbooks         enable row level security;
-alter table prepai.bookmarks         enable row level security;
-alter table prepai.payments          enable row level security;
-alter table prepai.app_settings      enable row level security;
+alter table public.prepai_profiles          enable row level security;
+alter table public.prepai_questions         enable row level security;
+alter table public.prepai_practice_sessions enable row level security;
+alter table public.prepai_session_answers   enable row level security;
+alter table public.prepai_weakness_reports  enable row level security;
+alter table public.prepai_textbooks         enable row level security;
+alter table public.prepai_bookmarks         enable row level security;
+alter table public.prepai_payments          enable row level security;
+alter table public.prepai_app_settings      enable row level security;
 
 -- ============================================================================
 -- Storage bucket for textbook files (safe to run on a shared project)
@@ -206,5 +203,5 @@ notify pgrst, 'reload schema';
 -- Sanity check — should list 9 tables
 select table_name
 from information_schema.tables
-where table_schema = 'prepai'
+where table_schema = 'public' and table_name like 'prepai_%'
 order by table_name;

@@ -49,6 +49,10 @@ export async function setSessionCookie(userId: string) {
     httpOnly: true,
     sameSite: isHttps ? "none" : "lax",
     secure: isHttps,
+    // Chrome blocks third-party cookies, which breaks sign-in when the app is
+    // embedded in an iframe (workspace previews, docs demos). CHIPS lets the
+    // cookie be stored partitioned against the embedding site instead.
+    ...(isHttps ? { partitioned: true } : {}),
     path: "/",
     maxAge: MAX_AGE,
   });
@@ -107,7 +111,7 @@ export async function signUp(input: {
   if (!input.full_name.trim()) return { ok: false, error: "Please enter your full name." };
 
   if (usingSupabase) {
-    const { admin } = await import("@/lib/db/supabase");
+    const { admin, T } = await import("@/lib/db/supabase");
     // NO EMAIL IS EVER SENT TO THE STUDENT.
     //
     // We deliberately use the admin API with email_confirm: true instead of
@@ -130,7 +134,7 @@ export async function signUp(input: {
     if (!profile) {
       const now = new Date().toISOString();
       await admin()
-        .from("profiles")
+        .from(T("profiles"))
         .upsert(
           {
             id: data.user.id,

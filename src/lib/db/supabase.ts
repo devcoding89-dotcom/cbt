@@ -32,6 +32,14 @@ import { DEFAULT_SETTINGS, type PickSpec, type QuestionFilter, type Repo, type T
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyClient = SupabaseClient<any, any, any, any, any>;
 
+
+/**
+ * Table-name resolver. Set SUPABASE_TABLE_PREFIX=prepai_ to install PrepAI's
+ * tables alongside another app inside the shared `public` schema.
+ */
+const PREFIX = process.env.SUPABASE_TABLE_PREFIX ?? "";
+export const T = (name: string) => `${PREFIX}${name}`;
+
 let _admin: AnyClient | null = null;
 export function admin(): AnyClient {
   if (_admin) return _admin;
@@ -64,7 +72,7 @@ export const supabaseRepo: Repo = {
     return null;
   },
   async getProfile(id) {
-    const { data } = await admin().from("profiles").select("*").eq("id", id).maybeSingle();
+    const { data } = await admin().from(T("profiles")).select("*").eq("id", id).maybeSingle();
     return (data as Profile) ?? null;
   },
   async createUser() {
@@ -72,7 +80,7 @@ export const supabaseRepo: Repo = {
   },
   async updateProfile(id, patch) {
     const res = await admin()
-      .from("profiles")
+      .from(T("profiles"))
       .update({ ...patch, updated_at: new Date().toISOString() })
       .eq("id", id)
       .select()
@@ -80,19 +88,19 @@ export const supabaseRepo: Repo = {
     return unwrap(res, "updateProfile") as Profile;
   },
   async listProfiles(opts) {
-    let q = admin().from("profiles").select("*").order("created_at", { ascending: false });
+    let q = admin().from(T("profiles")).select("*").order("created_at", { ascending: false });
     if (opts?.search) q = q.or(`email.ilike.%${opts.search}%,full_name.ilike.%${opts.search}%`);
     const res = await q.limit(opts?.limit ?? 200);
     return unwrap(res, "listProfiles") as Profile[];
   },
   async countProfiles() {
-    const { count } = await admin().from("profiles").select("*", { count: "exact", head: true });
+    const { count } = await admin().from(T("profiles")).select("*", { count: "exact", head: true });
     return count ?? 0;
   },
 
   // ---------------- questions ----------------
   async listQuestions(f: QuestionFilter = {}) {
-    let q = admin().from("questions").select("*", { count: "exact" });
+    let q = admin().from(T("questions")).select("*", { count: "exact" });
     if (f.exam && f.exam !== "ALL") q = q.eq("exam", f.exam);
     if (f.subject) q = q.eq("subject", f.subject);
     if (f.topic) q = q.eq("topic", f.topic);
@@ -107,29 +115,29 @@ export const supabaseRepo: Repo = {
     return { rows: (res.data ?? []) as Question[], total: res.count ?? 0 };
   },
   async getQuestion(id) {
-    const { data } = await admin().from("questions").select("*").eq("id", id).maybeSingle();
+    const { data } = await admin().from(T("questions")).select("*").eq("id", id).maybeSingle();
     return (data as Question) ?? null;
   },
   async createQuestion(q) {
-    const res = await admin().from("questions").insert(q).select().single();
+    const res = await admin().from(T("questions")).insert(q).select().single();
     return unwrap(res, "createQuestion") as Question;
   },
   async updateQuestion(id, patch) {
-    const res = await admin().from("questions").update(patch).eq("id", id).select().maybeSingle();
+    const res = await admin().from(T("questions")).update(patch).eq("id", id).select().maybeSingle();
     return unwrap(res, "updateQuestion") as Question;
   },
   async deleteQuestion(id) {
-    const { error } = await admin().from("questions").delete().eq("id", id);
+    const { error } = await admin().from(T("questions")).delete().eq("id", id);
     if (error) throw new Error(error.message);
   },
   async bulkCreateQuestions(rows) {
     if (!rows.length) return 0;
-    const { error } = await admin().from("questions").insert(rows);
+    const { error } = await admin().from(T("questions")).insert(rows);
     if (error) throw new Error(error.message);
     return rows.length;
   },
   async pickQuestions(spec: PickSpec) {
-    let q = admin().from("questions").select("*").eq("exam", spec.exam).eq("is_active", true);
+    let q = admin().from(T("questions")).select("*").eq("exam", spec.exam).eq("is_active", true);
     if (spec.subjects?.length) q = q.in("subject", spec.subjects);
     if (spec.topics?.length) q = q.in("topic", spec.topics);
     if (spec.difficulty) q = q.eq("difficulty", spec.difficulty);
@@ -158,7 +166,7 @@ export const supabaseRepo: Repo = {
     return out.sort(() => Math.random() - 0.5);
   },
   async questionFacets(exam) {
-    let q = admin().from("questions").select("subject,topic");
+    let q = admin().from(T("questions")).select("subject,topic");
     if (exam && exam !== "ALL") q = q.eq("exam", exam);
     const rows = (unwrap(await q.limit(10000), "facets") ?? []) as { subject: string; topic: string }[];
     return {
@@ -167,7 +175,7 @@ export const supabaseRepo: Repo = {
     };
   },
   async questionCountsBySubject(exam) {
-    let q = admin().from("questions").select("subject").eq("is_active", true);
+    let q = admin().from(T("questions")).select("subject").eq("is_active", true);
     if (exam && exam !== "ALL") q = q.eq("exam", exam);
     const rows = (unwrap(await q.limit(10000), "counts") ?? []) as { subject: string }[];
     const map = new Map<string, number>();
@@ -177,20 +185,20 @@ export const supabaseRepo: Repo = {
 
   // ---------------- sessions ----------------
   async createSession(s) {
-    const res = await admin().from("practice_sessions").insert(s).select().single();
+    const res = await admin().from(T("practice_sessions")).insert(s).select().single();
     return unwrap(res, "createSession") as PracticeSession;
   },
   async getSession(id) {
-    const { data } = await admin().from("practice_sessions").select("*").eq("id", id).maybeSingle();
+    const { data } = await admin().from(T("practice_sessions")).select("*").eq("id", id).maybeSingle();
     return (data as PracticeSession) ?? null;
   },
   async updateSession(id, patch) {
-    const res = await admin().from("practice_sessions").update(patch).eq("id", id).select().maybeSingle();
+    const res = await admin().from(T("practice_sessions")).update(patch).eq("id", id).select().maybeSingle();
     return unwrap(res, "updateSession") as PracticeSession;
   },
   async listSessions(userId, limit = 100) {
     const res = await admin()
-      .from("practice_sessions")
+      .from(T("practice_sessions"))
       .select("*")
       .eq("user_id", userId)
       .order("started_at", { ascending: false })
@@ -199,7 +207,7 @@ export const supabaseRepo: Repo = {
   },
   async listAllSessions(limit = 100) {
     const res = await admin()
-      .from("practice_sessions")
+      .from(T("practice_sessions"))
       .select("*")
       .order("started_at", { ascending: false })
       .limit(limit);
@@ -207,26 +215,26 @@ export const supabaseRepo: Repo = {
   },
   async upsertAnswer(a) {
     const res = await admin()
-      .from("session_answers")
+      .from(T("session_answers"))
       .upsert(a, { onConflict: "session_id,question_id" })
       .select()
       .single();
     return unwrap(res, "upsertAnswer") as SessionAnswer;
   },
   async listAnswers(sessionId) {
-    const res = await admin().from("session_answers").select("*").eq("session_id", sessionId);
+    const res = await admin().from(T("session_answers")).select("*").eq("session_id", sessionId);
     return (unwrap(res, "listAnswers") ?? []) as SessionAnswer[];
   },
 
   // ---------------- weaknesses ----------------
   async insertWeaknesses(rows) {
     if (!rows.length) return [];
-    const res = await admin().from("weakness_reports").insert(rows).select();
+    const res = await admin().from(T("weakness_reports")).insert(rows).select();
     return (unwrap(res, "insertWeaknesses") ?? []) as WeaknessReport[];
   },
   async listWeaknesses(userId, limit = 200) {
     const res = await admin()
-      .from("weakness_reports")
+      .from(T("weakness_reports"))
       .select("*")
       .eq("user_id", userId)
       .order("created_at", { ascending: false })
@@ -235,7 +243,7 @@ export const supabaseRepo: Repo = {
   },
   async listWeaknessesBySession(sessionId) {
     const res = await admin()
-      .from("weakness_reports")
+      .from(T("weakness_reports"))
       .select("*")
       .eq("session_id", sessionId)
       .order("weakness_score", { ascending: false });
@@ -244,7 +252,7 @@ export const supabaseRepo: Repo = {
 
   // ---------------- textbooks ----------------
   async listTextbooks(f: TextbookFilter = {}) {
-    let q = admin().from("textbooks").select("*");
+    let q = admin().from(T("textbooks")).select("*");
     if (f.exam && f.exam !== "ALL") q = q.eq("exam", f.exam);
     if (f.onlyPublished) q = q.eq("is_published", true);
     if (f.subject && f.subject !== "All") q = q.eq("subject", f.subject);
@@ -254,24 +262,24 @@ export const supabaseRepo: Repo = {
     return (unwrap(res, "listTextbooks") ?? []) as TextbookChapter[];
   },
   async getTextbook(id) {
-    const { data } = await admin().from("textbooks").select("*").eq("id", id).maybeSingle();
+    const { data } = await admin().from(T("textbooks")).select("*").eq("id", id).maybeSingle();
     return (data as TextbookChapter) ?? null;
   },
   async createTextbook(t) {
-    const res = await admin().from("textbooks").insert(t).select().single();
+    const res = await admin().from(T("textbooks")).insert(t).select().single();
     return unwrap(res, "createTextbook") as TextbookChapter;
   },
   async updateTextbook(id, patch) {
-    const res = await admin().from("textbooks").update(patch).eq("id", id).select().maybeSingle();
+    const res = await admin().from(T("textbooks")).update(patch).eq("id", id).select().maybeSingle();
     return unwrap(res, "updateTextbook") as TextbookChapter;
   },
   async deleteTextbook(id) {
-    const { error } = await admin().from("textbooks").delete().eq("id", id);
+    const { error } = await admin().from(T("textbooks")).delete().eq("id", id);
     if (error) throw new Error(error.message);
   },
   async findTextbookForTopic(exam, subject, topic) {
     const byTopic = await admin()
-      .from("textbooks")
+      .from(T("textbooks"))
       .select("*")
       .eq("is_published", true)
       .contains("topic_tags", [topic])
@@ -288,38 +296,38 @@ export const supabaseRepo: Repo = {
   // ---------------- bookmarks ----------------
   async toggleBookmark(userId, textbookId) {
     const { data } = await admin()
-      .from("bookmarks")
+      .from(T("bookmarks"))
       .select("id")
       .eq("user_id", userId)
       .eq("textbook_id", textbookId)
       .maybeSingle();
     if (data) {
-      await admin().from("bookmarks").delete().eq("id", (data as { id: string }).id);
+      await admin().from(T("bookmarks")).delete().eq("id", (data as { id: string }).id);
       return false;
     }
-    await admin().from("bookmarks").insert({ user_id: userId, textbook_id: textbookId });
+    await admin().from(T("bookmarks")).insert({ user_id: userId, textbook_id: textbookId });
     return true;
   },
   async listBookmarks(userId) {
-    const res = await admin().from("bookmarks").select("*").eq("user_id", userId);
+    const res = await admin().from(T("bookmarks")).select("*").eq("user_id", userId);
     return (unwrap(res, "listBookmarks") ?? []) as Bookmark[];
   },
 
   // ---------------- payments ----------------
   async createPayment(p) {
-    const res = await admin().from("payments").insert(p).select().single();
+    const res = await admin().from(T("payments")).insert(p).select().single();
     return unwrap(res, "createPayment") as Payment;
   },
   async getPaymentByRef(ref) {
-    const { data } = await admin().from("payments").select("*").eq("paystack_ref", ref).maybeSingle();
+    const { data } = await admin().from(T("payments")).select("*").eq("paystack_ref", ref).maybeSingle();
     return (data as Payment) ?? null;
   },
   async updatePaymentByRef(ref, patch) {
-    const res = await admin().from("payments").update(patch).eq("paystack_ref", ref).select().maybeSingle();
+    const res = await admin().from(T("payments")).update(patch).eq("paystack_ref", ref).select().maybeSingle();
     return unwrap(res, "updatePaymentByRef") as Payment;
   },
   async listPayments(userId, limit = 200) {
-    let q = admin().from("payments").select("*");
+    let q = admin().from(T("payments")).select("*");
     if (userId) q = q.eq("user_id", userId);
     const res = await q.order("created_at", { ascending: false }).limit(limit);
     return (unwrap(res, "listPayments") ?? []) as Payment[];
@@ -327,13 +335,13 @@ export const supabaseRepo: Repo = {
 
   // ---------------- settings ----------------
   async getSettings() {
-    const { data } = await admin().from("app_settings").select("*").eq("id", SETTINGS_ID).maybeSingle();
+    const { data } = await admin().from(T("app_settings")).select("*").eq("id", SETTINGS_ID).maybeSingle();
     return { ...DEFAULT_SETTINGS, ...((data as Partial<AppSettings>) ?? {}) };
   },
   async updateSettings(patch) {
     const current = await this.getSettings();
     const next = { ...current, ...patch };
-    await admin().from("app_settings").upsert({ id: SETTINGS_ID, ...next });
+    await admin().from(T("app_settings")).upsert({ id: SETTINGS_ID, ...next });
     return next;
   },
 };

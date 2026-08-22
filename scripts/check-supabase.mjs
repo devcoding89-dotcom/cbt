@@ -33,7 +33,9 @@ if (!url || !service) {
   process.exit(0);
 }
 
-const supabase = createClient(url, service, { auth: { persistSession: false } });
+const P = process.env.SUPABASE_TABLE_PREFIX || "";
+const T = (n) => P + n;
+const supabase = createClient(url, service, { auth: { persistSession: false }, db: { schema: process.env.SUPABASE_DB_SCHEMA || "public" } });
 const tables = [
   "profiles",
   "questions",
@@ -51,22 +53,30 @@ let missing = 0;
 for (const t of tables) {
   // NOTE: a HEAD+count request does not reliably fail on a missing table,
   // so we issue a real select instead.
-  const probe = await supabase.from(t).select("*").limit(1);
+  const probe = await supabase.from(T(t)).select("*").limit(1);
   if (probe.error) {
     missing++;
     console.log(`  ✖ ${t.padEnd(18)} ${probe.error.message.slice(0, 70)}`);
     continue;
   }
-  const { count } = await supabase.from(t).select("*", { count: "exact", head: true });
+  const { count } = await supabase.from(T(t)).select("*", { count: "exact", head: true });
   const cols = probe.data?.[0] ? ` [${Object.keys(probe.data[0]).slice(0, 5).join(", ")}…]` : "";
   console.log(`  ✓ ${t.padEnd(18)} ${String(count ?? 0).padStart(5)} rows${cols}`);
 }
 
 if (missing) {
-  console.log("\n➜ Run supabase/migrations/0001_init.sql in the Supabase SQL editor.");
+  const schema = process.env.SUPABASE_DB_SCHEMA || "public";
+  if (schema !== "public") {
+    console.log(`\n➜ If you see "Invalid schema: ${schema}", the tables exist but the API`);
+    console.log("  is not allowed to read them yet. In the Supabase dashboard go to:");
+    console.log("     Project Settings -> API -> Data API -> Exposed schemas");
+    console.log(`  and add "${schema}" alongside public and graphql_public, then Save.`);
+  } else {
+    console.log("\n➜ Run supabase/migrations/0001_init.sql in the Supabase SQL editor.");
+  }
 } else {
   const { count } = await supabase
-    .from("profiles")
+    .from(T("profiles"))
     .select("*", { count: "exact", head: true })
     .eq("role", "admin");
   console.log(`\n✅ Schema is ready. Admin accounts: ${count ?? 0}`);

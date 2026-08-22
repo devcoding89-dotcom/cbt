@@ -35,7 +35,9 @@ if (!email || !password) {
   process.exit(1);
 }
 
-const supabase = createClient(url, key, { auth: { persistSession: false } });
+const P = process.env.SUPABASE_TABLE_PREFIX || "";
+const T = (n) => P + n;
+const supabase = createClient(url, key, { auth: { persistSession: false }, db: { schema: process.env.SUPABASE_DB_SCHEMA || "public" } });
 
 let userId;
 const { data: created, error } = await supabase.auth.admin.createUser({
@@ -64,7 +66,7 @@ if (error) {
 }
 
 // the handle_new_user trigger creates the profile row; make sure it is there
-const { error: upsertErr } = await supabase.from("profiles").upsert(
+const { error: upsertErr } = await supabase.from(T("profiles")).upsert(
   {
     id: userId,
     email,
