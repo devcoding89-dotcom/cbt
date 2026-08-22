@@ -18,6 +18,7 @@ import {
 import { AppMockup } from "@/components/marketing/app-mockup";
 import { buttonClass } from "@/components/ui/button";
 import { repo } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth";
 import { formatNaira } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -134,6 +135,13 @@ const faqs = [
 ];
 
 export default async function LandingPage() {
+  const user = await getCurrentUser();
+  const signedIn = Boolean(user);
+  // Signed-in visitors should never be bounced through signup again.
+  const startHref = signedIn ? "/practice" : "/auth/signup";
+  const examHref = (exam: string) =>
+    signedIn ? `/practice?exam=${exam}` : `/auth/signup?exam=${exam}`;
+
   const [settings, counts, questionTotal] = await Promise.all([
     repo.getSettings(),
     repo.questionCountsBySubject("ALL"),
@@ -175,8 +183,8 @@ export default async function LandingPage() {
             </p>
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Link href="/auth/signup" className={buttonClass("primary", "lg", "w-full sm:w-auto")}>
-                Start practising — {price}/month
+              <Link href={startHref} className={buttonClass("primary", "lg", "w-full sm:w-auto")}>
+                {signedIn ? "Start practising" : `Start practising — ${price}/month`}
                 <ArrowRight className="size-4.5" />
               </Link>
               <Link href="#how" className={buttonClass("outline", "lg", "w-full sm:w-auto")}>
@@ -240,7 +248,7 @@ export default async function LandingPage() {
             {examCards.map((c) => (
               <Link
                 key={c.exam}
-                href={`/auth/signup?exam=${c.exam}`}
+                href={examHref(c.exam)}
                 className={`group relative overflow-hidden rounded-2xl border border-ink-200 bg-white p-6 transition-all duration-200 card-shadow hover:-translate-y-1 hover:shadow-xl ${c.ring}`}
               >
                 <div className={`absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r ${c.accent}`} />
@@ -411,8 +419,8 @@ export default async function LandingPage() {
                 ))}
               </ul>
 
-              <Link href="/auth/signup" className={buttonClass("primary", "lg", "mt-7 w-full")}>
-                Start practising now
+              <Link href={signedIn ? "/billing" : "/auth/signup"} className={buttonClass("primary", "lg", "mt-7 w-full")}>
+                {signedIn ? "Manage my subscription" : "Start practising now"}
                 <ArrowRight className="size-4.5" />
               </Link>
 
@@ -490,12 +498,12 @@ export default async function LandingPage() {
                 Join hundreds of Nigerian students who stopped guessing what to study.
               </p>
               <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-                <Link href="/auth/signup" className={buttonClass("secondary", "lg", "bg-white text-brand-700 hover:bg-brand-50")}>
-                  Create your free account
+                <Link href={signedIn ? "/dashboard" : "/auth/signup"} className={buttonClass("secondary", "lg", "bg-white text-brand-700 hover:bg-brand-50")}>
+                  {signedIn ? "Go to my dashboard" : "Create your free account"}
                   <ArrowRight className="size-4.5" />
                 </Link>
-                <Link href="/auth/login" className={buttonClass("outline", "lg", "border-white/40 bg-white/10 text-white hover:bg-white/20 hover:text-white")}>
-                  I already have an account
+                <Link href={signedIn ? "/practice" : "/auth/login"} className={buttonClass("outline", "lg", "border-white/40 bg-white/10 text-white hover:bg-white/20 hover:text-white")}>
+                  {signedIn ? "Start a practice session" : "I already have an account"}
                 </Link>
               </div>
             </div>

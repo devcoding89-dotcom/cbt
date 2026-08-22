@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser, isSubscribed } from "@/lib/auth";
 import { repo } from "@/lib/db";
 import { PracticeSetup } from "@/components/app/practice-setup";
+import { EXAMS, type Exam } from "@/lib/types";
 
 export const metadata = { title: "Practice" };
 export const dynamic = "force-dynamic";
@@ -9,12 +10,15 @@ export const dynamic = "force-dynamic";
 export default async function PracticePage({
   searchParams,
 }: {
-  searchParams: Promise<{ subject?: string; topic?: string }>;
+  searchParams: Promise<{ subject?: string; topic?: string; exam?: string }>;
 }) {
   const user = await getCurrentUser();
   if (!user) redirect("/auth/login");
-  const exam = user.target_exam ?? "JAMB";
-  const { subject, topic } = await searchParams;
+  const { subject, topic, exam: examParam } = await searchParams;
+  // ?exam=WAEC lets the landing page's exam cards drop you straight in.
+  const exam = EXAMS.includes(examParam as Exam)
+    ? (examParam as Exam)
+    : (user.target_exam ?? "JAMB");
 
   const [subjectCounts, facets] = await Promise.all([
     repo.questionCountsBySubject(exam),
