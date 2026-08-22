@@ -1,8 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { getCurrentUser, isSubscribed } from "@/lib/auth";
-import { repo } from "@/lib/db";
+import { canAccessPaidFeatures, getCurrentUser } from "@/lib/auth";
 import { startSession, type Mode } from "@/lib/services/practice";
 import type { Difficulty, Exam } from "@/lib/types";
 
@@ -17,8 +16,7 @@ export async function startPracticeAction(
   const user = await getCurrentUser();
   if (!user) redirect("/auth/login");
 
-  const settings = await repo.getSettings();
-  if (settings.paywall_enabled && !isSubscribed(user)) {
+  if (!(await canAccessPaidFeatures(user))) {
     redirect("/billing?reason=practice");
   }
 

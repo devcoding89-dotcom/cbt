@@ -11,7 +11,7 @@ import {
   TrendingUp,
   Trophy,
 } from "lucide-react";
-import { getCurrentUser, isSubscribed } from "@/lib/auth";
+import { canAccessPaidFeatures, getCurrentUser } from "@/lib/auth";
 import { getDashboardData } from "@/lib/stats";
 import { Badge, Card, CardBody, CardHeader, CardTitle, EmptyState, ProgressBar, Stat } from "@/components/ui/card";
 import { LinkButton, buttonClass } from "@/components/ui/button";
@@ -27,7 +27,7 @@ export default async function DashboardPage() {
   if (!user.target_exam) redirect("/onboarding");
 
   const { stats, sessions, plan } = await getDashboardData(user.id);
-  const subscribed = isSubscribed(user);
+  const subscribed = await canAccessPaidFeatures(user);
   const firstName = user.full_name?.split(" ")[0] ?? "there";
   const completed = sessions.filter((s) => s.status === "completed");
   const inProgress = sessions.find((s) => s.status === "in_progress");

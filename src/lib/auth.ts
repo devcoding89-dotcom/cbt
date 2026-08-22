@@ -94,6 +94,20 @@ export function isSubscribed(p: Profile | null): boolean {
   return new Date(p.subscription_expires_at).getTime() > Date.now();
 }
 
+/**
+ * Whether this user may use paid features (practice sessions, textbooks).
+ *
+ * When the paywall is switched off in Admin -> Settings, everyone gets full
+ * access regardless of subscription status. Prefer this over isSubscribed()
+ * for gating features; use isSubscribed() only to describe billing state.
+ */
+export async function canAccessPaidFeatures(p: Profile | null): Promise<boolean> {
+  if (!p) return false;
+  const settings = await repo.getSettings();
+  if (!settings.paywall_enabled) return true;
+  return isSubscribed(p);
+}
+
 export interface AuthResult {
   ok: boolean;
   error?: string;

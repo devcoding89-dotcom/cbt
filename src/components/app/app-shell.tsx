@@ -51,7 +51,15 @@ function NavItem({ href, label, icon: Icon, active, onClick }: {
   );
 }
 
-export function AppShell({ user, children }: { user: Profile; children: React.ReactNode }) {
+export function AppShell({
+  user,
+  paywallEnabled = true,
+  children,
+}: {
+  user: Profile;
+  paywallEnabled?: boolean;
+  children: React.ReactNode;
+}) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
@@ -68,7 +76,7 @@ export function AppShell({ user, children }: { user: Profile; children: React.Re
       </div>
 
       <div className="mt-auto space-y-3 pt-6">
-        {user.role !== "admin" && user.subscription_status !== "active" && (
+        {paywallEnabled && user.role !== "admin" && user.subscription_status !== "active" && (
           <div className="rounded-2xl bg-gradient-to-br from-brand-600 to-violet-700 p-4 text-white">
             <p className="text-sm font-bold">Unlock full practice</p>
             <p className="mt-1 text-[12px] leading-relaxed text-brand-100">
@@ -136,16 +144,22 @@ export function AppShell({ user, children }: { user: Profile; children: React.Re
                 {user.target_exam}
               </span>
             )}
-            <span
-              className={cn(
-                "hidden rounded-lg px-2.5 py-1 text-[12px] font-semibold sm:inline",
-                user.subscription_status === "active"
-                  ? "bg-emerald-50 text-emerald-700"
-                  : "bg-amber-50 text-amber-700",
-              )}
-            >
-              {user.subscription_status === "active" ? "Active" : "No subscription"}
-            </span>
+            {paywallEnabled ? (
+              <span
+                className={cn(
+                  "hidden rounded-lg px-2.5 py-1 text-[12px] font-semibold sm:inline",
+                  user.subscription_status === "active"
+                    ? "bg-emerald-50 text-emerald-700"
+                    : "bg-amber-50 text-amber-700",
+                )}
+              >
+                {user.subscription_status === "active" ? "Active" : "No subscription"}
+              </span>
+            ) : (
+              <span className="hidden rounded-lg bg-emerald-50 px-2.5 py-1 text-[12px] font-semibold text-emerald-700 sm:inline">
+                Full access
+              </span>
+            )}
             <Link href="/settings" className="flex items-center gap-2.5 rounded-xl py-1 pl-1 pr-2 hover:bg-ink-100">
               <span className="grid size-9 place-items-center rounded-full bg-gradient-to-br from-brand-500 to-brand-700 text-[13px] font-bold text-white">
                 {initials(user.full_name, user.email)}

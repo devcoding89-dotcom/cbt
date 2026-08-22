@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { BookOpen, Bookmark, Search } from "lucide-react";
-import { getCurrentUser, isSubscribed } from "@/lib/auth";
+import { canAccessPaidFeatures, getCurrentUser } from "@/lib/auth";
 import { repo } from "@/lib/db";
 import { Badge, Card, CardBody, EmptyState } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -29,7 +29,7 @@ export default async function TextbooksPage({
   ]);
   const subjects = [...new Set(all.map((t) => t.subject))].sort();
   const marked = new Set(bookmarks.map((b) => b.textbook_id));
-  const subscribed = isSubscribed(user);
+  const subscribed = await canAccessPaidFeatures(user);
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">

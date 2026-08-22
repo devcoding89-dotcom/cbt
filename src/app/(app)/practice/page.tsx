@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { getCurrentUser, isSubscribed } from "@/lib/auth";
+import { canAccessPaidFeatures, getCurrentUser } from "@/lib/auth";
 import { repo } from "@/lib/db";
 import { PracticeSetup } from "@/components/app/practice-setup";
 import { EXAMS, type Exam } from "@/lib/types";
@@ -39,7 +39,7 @@ export default async function PracticePage({
         presetSubject={subject}
         presetTopic={topic}
         topics={facets.topics}
-        subscribed={isSubscribed(user)}
+        subscribed={await canAccessPaidFeatures(user)}
       />
     </div>
   );
