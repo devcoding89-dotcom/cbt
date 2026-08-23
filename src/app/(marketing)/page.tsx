@@ -183,7 +183,7 @@ export default async function LandingPage() {
             </p>
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Link href={startHref} className={buttonClass("primary", "lg", "w-full sm:w-auto")}>
+              <Link href={startHref} prefetch={false} className={buttonClass("primary", "lg", "w-full sm:w-auto")}>
                 {signedIn ? "Start practising" : `Start practising — ${price}/month`}
                 <ArrowRight className="size-4.5" />
               </Link>
@@ -249,6 +249,7 @@ export default async function LandingPage() {
               <Link
                 key={c.exam}
                 href={examHref(c.exam)}
+                prefetch={false}
                 className={`group relative overflow-hidden rounded-2xl border border-ink-200 bg-white p-6 transition-all duration-200 card-shadow hover:-translate-y-1 hover:shadow-xl ${c.ring}`}
               >
                 <div className={`absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r ${c.accent}`} />
