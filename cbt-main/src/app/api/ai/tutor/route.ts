@@ -18,7 +18,7 @@ export async function POST(req: Request) {
   }
 
   const history: TutorMessage[] = Array.isArray(body?.history)
-    ? body.history.flatMap((item) => {
+    ? body.history.flatMap((item): TutorMessage[] => {
         if (!item || typeof item !== "object") return [];
         const candidate = item as { role?: unknown; text?: unknown };
         if (typeof candidate.text !== "string") return [];
