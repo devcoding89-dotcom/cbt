@@ -7,6 +7,57 @@ import type { Profile } from "@/lib/types";
 
 const COOKIE = "prepai_session";
 const MAX_AGE = 60 * 60 * 24 * 30; // 30 days
+const GUEST_EMAIL = "guest@prepai.local";
+
+function guestModeEnabled() {
+  return false;
+}
+
+let guestProfilePromise: Promise<Profile> | null = null;
+async function getGuestProfile(): Promise<Profile> {
+  if (!guestProfilePromise) {
+    guestProfilePromise = (async () => {
+      let guestId: string = crypto.randomUUID();
+      if (usingSupabase) {
+        const { admin } = await import("@/lib/db/supabase");
+        const created = await admin().auth.admin.createUser({
+          email: GUEST_EMAIL,
+          password: crypto.randomBytes(24).toString("base64url"),
+          email_confirm: true,
+          user_metadata: { full_name: "Guest Student" },
+        });
+        if (created.data.user) guestId = created.data.user.id;
+        else if (/already been registered|already exists/i.test(created.error?.message ?? "")) {
+          const users = await admin().auth.admin.listUsers({ page: 1, perPage: 1000 });
+          const existing = users.data.users.find((user) => user.email === GUEST_EMAIL);
+          if (!existing) throw new Error("Guest Auth user could not be found.");
+          guestId = existing.id;
+        } else {
+          throw new Error(`Guest Auth setup failed: ${created.error?.message ?? "unknown error"}`);
+        }
+      }
+      const profile: Profile = {
+        id: guestId,
+        email: GUEST_EMAIL,
+        full_name: "Guest Student",
+        role: "student",
+        target_exam: null,
+        avatar_url: null,
+        subscription_status: "active",
+        subscription_expires_at: new Date(Date.now() + 3650 * 864e5).toISOString(),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      if (usingSupabase) {
+        const { admin, T } = await import("@/lib/db/supabase");
+        const { error } = await admin().from(T("profiles")).upsert(profile, { onConflict: "id" });
+        if (error) throw new Error(`Guest profile setup failed: ${error.message}`);
+      }
+      return profile;
+    })();
+  }
+  return guestProfilePromise;
+}
 
 function secret() {
   if (process.env.AUTH_SECRET) return process.env.AUTH_SECRET;
@@ -67,6 +118,7 @@ export async function clearSessionCookie() {
 
 /** Current signed-in user (or null). Cached per request. */
 export async function getCurrentUser(): Promise<Profile | null> {
+  if (guestModeEnabled()) return getGuestProfile();
   const jar = await cookies();
   const uid = decode(jar.get(COOKIE)?.value);
   if (!uid) return null;
@@ -105,6 +157,7 @@ export function isSubscribed(p: Profile | null): boolean {
  */
 export async function canAccessPaidFeatures(p: Profile | null): Promise<boolean> {
   if (!p) return false;
+  if (guestModeEnabled() && p.email === GUEST_EMAIL) return true;
   const settings = await repo.getSettings();
   if (!settings.paywall_enabled) return true;
   return isSubscribed(p);
@@ -149,7 +202,7 @@ export async function signUp(input: {
     let profile = await repo.getProfile(data.user.id);
     if (!profile) {
       const now = new Date().toISOString();
-      await admin()
+      const { error: profileError } = await admin()
         .from(T("profiles"))
         .upsert(
           {
@@ -163,6 +216,7 @@ export async function signUp(input: {
           },
           { onConflict: "id" },
         );
+      if (profileError) return { ok: false, error: "Account created, but your profile could not be created. Please try again." };
       profile = await repo.getProfile(data.user.id);
     }
     await setSessionCookie(data.user.id);
@@ -186,17 +240,44 @@ export async function signIn(email: string, password: string): Promise<AuthResul
   const mail = email.trim().toLowerCase();
 
   if (usingSupabase) {
-    const { createClient } = await import("@supabase/supabase-js");
-    const client = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      { auth: { persistSession: false } },
-    );
-    const { data, error } = await client.auth.signInWithPassword({ email: mail, password });
-    if (error || !data.user) return { ok: false, error: "Incorrect email or password." };
-    await setSessionCookie(data.user.id);
-    const profile = await repo.getProfile(data.user.id);
-    return { ok: true, user: profile ?? undefined };
+    try {
+      const { createClient } = await import("@supabase/supabase-js");
+      const client = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        { auth: { persistSession: false } },
+      );
+      const { data, error } = await client.auth.signInWithPassword({ email: mail, password });
+      if (error || !data.user) return { ok: false, error: "Incorrect email or password." };
+      let profile = await repo.getProfile(data.user.id);
+      if (!profile) {
+        const { admin, T } = await import("@/lib/db/supabase");
+        const { data: authUser } = await admin().auth.admin.getUserById(data.user.id);
+        const now = new Date().toISOString();
+        const { error: profileError } = await admin()
+          .from(T("profiles"))
+          .upsert(
+            {
+              id: data.user.id,
+              email: mail,
+              full_name: String(authUser.user?.user_metadata?.full_name ?? ""),
+              role: "student",
+              subscription_status: "inactive",
+              created_at: now,
+              updated_at: now,
+            },
+            { onConflict: "id" },
+          );
+        if (profileError) return { ok: false, error: "Your account exists, but its profile is not ready. Please contact the administrator." };
+        profile = await repo.getProfile(data.user.id);
+      }
+      if (!profile) return { ok: false, error: "Your account profile is not ready. Please try again." };
+      await setSessionCookie(data.user.id);
+      return { ok: true, user: profile };
+    } catch (error) {
+      console.error("[auth] Supabase sign-in failed", error);
+      return { ok: false, error: "Login is temporarily unavailable. Please check your connection and try again." };
+    }
   }
 
   const user = await repo.getUserByEmail(mail);

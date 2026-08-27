@@ -8,5 +8,5 @@ export default async function AdminLoginPage() {
   const user = await getCurrentUser();
   if (user) redirect(user.role === "admin" ? "/admin" : "/dashboard");
 
-  return <LoginForm next="/admin" adminLogin />;
+  return <LoginForm next="/admin" adminLogin hideSignup />;
 }

@@ -24,7 +24,6 @@ export const dynamic = "force-dynamic";
 export default async function DashboardPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/auth/login");
-  if (!user.target_exam) redirect("/onboarding");
 
   const { stats, sessions, plan } = await getDashboardData(user.id);
   const subscribed = await canAccessPaidFeatures(user);

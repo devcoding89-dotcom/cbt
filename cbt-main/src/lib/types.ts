@@ -2,8 +2,8 @@
 // PrepAI — shared domain types
 // ---------------------------------------------------------------------------
 
-export type Exam = "JAMB" | "WAEC" | "NECO";
-export const EXAMS: Exam[] = ["JAMB", "WAEC", "NECO"];
+export type Exam = "JAMB" | "WAEC" | "NECO" | "AI GENERATED";
+export const EXAMS: Exam[] = ["JAMB", "WAEC", "NECO", "AI GENERATED"];
 
 export type Difficulty = "easy" | "medium" | "hard";
 export type Role = "student" | "admin";
@@ -202,6 +202,16 @@ export const SUBJECTS_BY_EXAM: Record<Exam, string[]> = {
     "Further Mathematics",
     "Civic Education",
     "Financial Accounting",
+  ],
+  "AI GENERATED": [
+    "Mathematics",
+    "English Language",
+    "Physics",
+    "Chemistry",
+    "Biology",
+    "Economics",
+    "Government",
+    "General Knowledge",
   ],
 };
 

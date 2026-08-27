@@ -7,6 +7,72 @@ import { cn } from "@/lib/utils";
 
 type TutorMessage = { role: "user" | "assistant"; text: string };
 
+function splitTableRow(row: string) {
+  const cells = row.trim().replace(/^\|/, "").replace(/\|$/, "").split("|");
+  return cells.map((cell) => cell.trim());
+}
+
+function isTableDivider(row: string) {
+  const cells = splitTableRow(row);
+  return cells.length > 0 && cells.every((cell) => /^:?-{3,}:?$/.test(cell));
+}
+
+function AssistantMessage({ text }: { text: string }) {
+  const lines = text.split("\n");
+  const content: React.ReactNode[] = [];
+  let index = 0;
+
+  while (index < lines.length) {
+    if (index + 1 < lines.length && lines[index].includes("|") && isTableDivider(lines[index + 1])) {
+      const headers = splitTableRow(lines[index]);
+      const rows: string[][] = [];
+      index += 2;
+      while (index < lines.length && lines[index].includes("|")) {
+        rows.push(splitTableRow(lines[index]));
+        index += 1;
+      }
+
+      content.push(
+        <div key={`table-${index}`} className="my-3 max-w-full overflow-x-auto rounded-xl border border-ink-200">
+          <table className="w-full min-w-[30rem] border-collapse text-left text-[13px]">
+            <thead className="bg-ink-100 text-ink-900">
+              <tr>
+                {headers.map((header, cellIndex) => (
+                  <th key={cellIndex} className="border-b border-ink-200 px-3 py-2.5 font-bold whitespace-nowrap">
+                    {header}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-ink-100 bg-white">
+              {rows.map((row, rowIndex) => (
+                <tr key={rowIndex} className="align-top even:bg-ink-50/60">
+                  {headers.map((_, cellIndex) => (
+                    <td key={cellIndex} className="px-3 py-2.5 leading-relaxed text-ink-700">
+                      {row[cellIndex] ?? ""}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>,
+      );
+      continue;
+    }
+
+    content.push(
+      <span key={`line-${index}`}>
+        {lines[index]}
+        {index < lines.length - 1 && "\n"}
+      </span>,
+    );
+    index += 1;
+  }
+
+  return <>{content}</>;
+}
+
 export function AiTutor({ exam }: { exam: string | null }) {
   const [messages, setMessages] = useState<TutorMessage[]>([]);
   const [input, setInput] = useState("");
@@ -73,9 +139,7 @@ export function AiTutor({ exam }: { exam: string | null }) {
                   "max-w-[min(90%,680px)] whitespace-pre-wrap rounded-2xl px-4 py-3 text-sm leading-relaxed",
                   message.role === "user" ? "bg-brand-600 text-white" : "bg-ink-100 text-ink-800",
                 )}
-              >
-                {message.text}
-              </div>
+              >{message.role === "assistant" ? <AssistantMessage text={message.text} /> : message.text}</div>
               {message.role === "user" && <UserRound className="mt-1 size-4 shrink-0 text-ink-400" />}
             </div>
           ))}

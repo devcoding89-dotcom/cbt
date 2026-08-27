@@ -28,7 +28,7 @@ function PasswordInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
   );
 }
 
-export function LoginForm({ next, adminLogin = false }: { next?: string; adminLogin?: boolean }) {
+export function LoginForm({ next, adminLogin = false, hideSignup = false }: { next?: string; adminLogin?: boolean; hideSignup?: boolean }) {
   const [state, action, pending] = useActionState(loginAction, initial);
   return (
     <form action={action} className="animate-fade-up space-y-5">
@@ -61,12 +61,14 @@ export function LoginForm({ next, adminLogin = false }: { next?: string; adminLo
         Log in
       </Button>
 
-      <p className="text-center text-sm text-ink-500">
-        Don&apos;t have an account?{" "}
-        <Link href="/auth/signup" className="font-semibold text-brand-700 hover:underline">
-          Sign up
-        </Link>
-      </p>
+      {!hideSignup && (
+        <p className="text-center text-sm text-ink-500">
+          Don&apos;t have an account?{" "}
+          <Link href="/auth/signup" className="font-semibold text-brand-700 hover:underline">
+            Sign up
+          </Link>
+        </p>
+      )}
 
     </form>
   );
