@@ -25,6 +25,7 @@ export interface StartInput {
   count?: number;
   difficulty?: Difficulty;
   durationSeconds?: number;
+  shuffle?: boolean;
 }
 
 export async function startSession(input: StartInput): Promise<
@@ -53,6 +54,7 @@ export async function startSession(input: StartInput): Promise<
     topics: input.topics?.length ? input.topics : undefined,
     count,
     difficulty: input.difficulty,
+    shuffle: input.shuffle,
   });
 
   if (questions.length === 0) {

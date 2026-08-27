@@ -32,6 +32,7 @@ export async function startPracticeAction(
   const difficulty = ["easy", "medium", "hard"].includes(difficultyRaw)
     ? (difficultyRaw as Difficulty)
     : undefined;
+  const shuffle = String(formData.get("shuffle") ?? "yes") === "yes";
   const customCount = Number(formData.get("count") ?? 0);
   if (!Number.isFinite(customCount) || customCount < 0 || customCount > 500) {
     return { error: "Question count must be between 1 and 500." };
@@ -48,6 +49,7 @@ export async function startPracticeAction(
     topics,
     mode,
     difficulty,
+    shuffle,
     count: customCount > 0 ? customCount : undefined,
   });
 

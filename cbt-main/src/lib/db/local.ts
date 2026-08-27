@@ -261,7 +261,9 @@ export const localRepo: Repo = {
       arr.push(q);
       bySubject.set(q.subject, arr);
     }
-    for (const [k, v] of bySubject) bySubject.set(k, v.sort(() => Math.random() - 0.5));
+    if (spec.shuffle !== false) {
+      for (const [k, v] of bySubject) bySubject.set(k, v.sort(() => Math.random() - 0.5));
+    }
     const out: Question[] = [];
     let exhausted = false;
     while (out.length < spec.count && !exhausted) {
@@ -275,7 +277,7 @@ export const localRepo: Repo = {
         }
       }
     }
-    return out.sort(() => Math.random() - 0.5);
+    return spec.shuffle === false ? out : out.sort(() => Math.random() - 0.5);
   },
   async questionFacets(exam) {
     const db = loadSync();
